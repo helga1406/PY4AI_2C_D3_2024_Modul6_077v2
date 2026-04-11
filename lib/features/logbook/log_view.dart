@@ -6,6 +6,7 @@ import 'package:logbook_app_077/features/logbook/models/log_model.dart';
 import 'package:logbook_app_077/features/widgets/log_item_widget.dart';
 import 'package:logbook_app_077/services/access_control_service.dart';
 import 'package:logbook_app_077/features/logbook/log_editor_page.dart';
+import 'package:logbook_app_077/features/vision/vision_view.dart';
 
 class LogView extends StatefulWidget {
   final String username;
@@ -81,6 +82,17 @@ class _LogViewState extends State<LogView> {
         backgroundColor: _primaryPink,
         automaticallyImplyLeading: false,
         actions: [
+          // --- TAMBAHAN MODUL 6: Tombol Kamera (Smart-Patrol) ---
+          IconButton(
+            icon: const Icon(Icons.camera_alt, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const VisionView()),
+              );
+            },
+          ),
+          // ------------------------------------------------------
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () => _confirmAction(

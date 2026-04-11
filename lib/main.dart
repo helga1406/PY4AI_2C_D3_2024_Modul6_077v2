@@ -4,9 +4,18 @@ import 'package:logbook_app_077/features/onboarding/onboarding_view.dart';
 import 'package:intl/date_symbol_data_local.dart'; 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:logbook_app_077/features/logbook/models/log_model.dart';
+import 'package:camera/camera.dart'; 
+
+List<CameraDescription> cameras = []; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    cameras = await availableCameras();
+  } on CameraException catch (e) {
+    debugPrint('Error: ${e.code}\nError Message: ${e.description}');
+  }
+
   await Hive.initFlutter();
 
   Hive.registerAdapter(LogModelAdapter()); 
@@ -28,7 +37,7 @@ class MyApp extends StatelessWidget {
       title: 'LogBook App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 158, 101, 140)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 158, 101, 140)),
         useMaterial3: true,
       ),
       home: const OnboardingView(),
