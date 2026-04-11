@@ -1,7 +1,7 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'vision_controller.dart';
-import 'damage_painter.dart'; 
+import 'damage_painter.dart';
 
 class VisionView extends StatefulWidget {
   const VisionView({super.key});
@@ -50,8 +50,7 @@ class _VisionViewState extends State<VisionView> {
       ),
     );
   }
-  
-  // Membangun Stack dengan CameraPreview dan CustomPaint 
+
   Widget _buildVisionStack() {
     return Stack(
       fit: StackFit.expand, 
@@ -62,10 +61,12 @@ class _VisionViewState extends State<VisionView> {
             child: CameraPreview(_visionController.controller!),
           ),
         ),
-
         Positioned.fill(
           child: CustomPaint(
-            painter: DamagePainter(), 
+            painter: DamagePainter(
+              normalizedX: _visionController.mockX,
+              normalizedY: _visionController.mockY,
+            ),
           ),
         ),
       ],

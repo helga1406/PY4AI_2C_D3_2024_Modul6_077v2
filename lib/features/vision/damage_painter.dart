@@ -1,39 +1,46 @@
 import 'package:flutter/material.dart';
 
 class DamagePainter extends CustomPainter {
+  // Menerima koordinat yang selalu berubah dari Controller
+  final double normalizedX;
+  final double normalizedY;
+
+  DamagePainter({required this.normalizedX, required this.normalizedY});
+
   @override
   void paint(Canvas canvas, Size size) {
-    // Gambar kotak merah di tengah layar
     final paint = Paint()
       ..color = Colors.redAccent
       ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke; 
-
-    double boxSize = size.width * 0.5; 
     
-    double finalX = size.width / 2;
-    double finalY = size.height / 2;
+    // Ukuran kotak tetap, posisinya yang berubah
+    double boxSize = size.width * 0.4; 
+    
+    // Konversi koordinat normalisasi ke posisi sebenarnya pada layar
+    double finalX = normalizedX * size.width;
+    double finalY = normalizedY * size.height;
     
     double left = finalX - (boxSize / 2);
     double top = finalY - (boxSize / 2);
 
     final rect = Rect.fromLTWH(left, top, boxSize, boxSize);
 
+    // Menggambar Kotak dan Crosshair
     canvas.drawRect(rect, paint);
+    canvas.drawLine(Offset(finalX - 10, finalY), Offset(finalX + 10, finalY), paint);
+    canvas.drawLine(Offset(finalX, finalY - 10), Offset(finalX, finalY + 10), paint);
 
-    canvas.drawLine(Offset(finalX - 15, finalY), Offset(finalX + 15, finalY), paint);
-    canvas.drawLine(Offset(finalX, finalY - 15), Offset(finalX, finalY + 15), paint);
-
-    // Tambahkan teks di atas kotak
+    // Label Pothole RDD-2022
     const textStyle = TextStyle(
       color: Colors.white,
       fontSize: 14,
       fontWeight: FontWeight.bold,
-      backgroundColor: Colors.black54, 
+      backgroundColor: Colors.redAccent, 
     );
 
     const textSpan = TextSpan(
-      text: " Searching for Road Damage... ", 
+      text: " [D40] POTHOLE - 92% ", 
       style: textStyle,
     );
 
@@ -48,6 +55,6 @@ class DamagePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant DamagePainter oldDelegate) {
-    return false;
+    return oldDelegate.normalizedX != normalizedX || oldDelegate.normalizedY != normalizedY;
   }
 }
