@@ -82,7 +82,6 @@ class _LogViewState extends State<LogView> {
         backgroundColor: _primaryPink,
         automaticallyImplyLeading: false,
         actions: [
-          // --- TAMBAHAN MODUL 6: Tombol Kamera (Smart-Patrol) ---
           IconButton(
             icon: const Icon(Icons.camera_alt, color: Colors.white),
             onPressed: () {
@@ -92,7 +91,6 @@ class _LogViewState extends State<LogView> {
               );
             },
           ),
-          // ------------------------------------------------------
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () => _confirmAction(
