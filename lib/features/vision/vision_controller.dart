@@ -10,6 +10,8 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   bool isInitialized = false;
   String? errorMessage;
   bool isPermissionDenied = false;
+  
+  bool _isCameraInitializing = false; 
 
   double mockX = 0.5;
   double mockY = 0.5;
@@ -19,57 +21,92 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   bool isFlashOn = false;
   bool showOverlay = true;
 
+  // --- FITUR PCD & KONTROL ---
+  String activeFilter = "Normal";
+  double scaleFactor = 1.0; 
+  bool isSmoothActive = false; 
+  bool isNoiseActive = false; 
+
   VisionController() {
     WidgetsBinding.instance.addObserver(this);
   }
 
-  // --- Fungsi Toggle Senter ---
+  void setFilter(String filterName) {
+    activeFilter = filterName;
+    notifyListeners();
+  }
+
+  void toggleSize() {
+    scaleFactor = (scaleFactor == 1.0) ? 1.2 : 1.0;
+    notifyListeners();
+  }
+
+  void toggleSmooth() {
+    isSmoothActive = !isSmoothActive;
+    notifyListeners();
+  }
+
+  void toggleNoise() {
+    isNoiseActive = !isNoiseActive;
+    notifyListeners();
+  }
+
   Future<void> toggleFlash() async {
     if (controller == null || !isInitialized) return;
     try {
       isFlashOn = !isFlashOn;
-      await controller!.setFlashMode(
-        isFlashOn ? FlashMode.torch : FlashMode.off,
-      );
+      await controller!.setFlashMode(isFlashOn ? FlashMode.torch : FlashMode.off);
       notifyListeners();
     } catch (e) {
       debugPrint("Gagal menyalakan senter: $e");
     }
   }
 
-  // --- Fungsi Toggle Overlay ---
   void toggleOverlay(bool value) {
     showOverlay = value;
     notifyListeners();
   }
 
-  // --- FUNGSI UTAMA: Inisialisasi Kamera & Simulasi ---
+  // --- INISIALISASI KAMERA ---
   Future<void> initCamera() async {
+    if (_isCameraInitializing) return; 
+    _isCameraInitializing = true;
+    
     isPermissionDenied = false;
     errorMessage = null;
-    notifyListeners();
+    notifyListeners(); 
 
-    var status = await Permission.camera.request();
+    var status = await Permission.camera.status;
+    if (!status.isGranted) {
+      status = await Permission.camera.request();
+    }
 
     if (status.isGranted) {
       try {
         if (cameras.isEmpty) {
-          errorMessage = "Sensor kamera tidak ditemukan pada perangkat ini.";
+          errorMessage = "Sensor kamera tidak ditemukan.";
+          _isCameraInitializing = false;
           notifyListeners();
           return;
         }
 
-        controller = CameraController(
+        final oldController = controller;
+        if (oldController != null) {
+          controller = null; 
+          await oldController.dispose();
+        }
+
+        CameraController newController = CameraController(
           cameras[0],
           ResolutionPreset.medium,
           enableAudio: false,
         );
 
-        await controller!.initialize();
+        await newController.initialize();
+        controller = newController; 
         isInitialized = true;
         errorMessage = null;
 
-        // Jalankan simulasi deteksi
         _mockTimer?.cancel();
         _mockTimer = Timer.periodic(
           const Duration(seconds: 3),
@@ -77,7 +114,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
             mockX = 0.2 + Random().nextDouble() * 0.6;
             mockY = 0.2 + Random().nextDouble() * 0.6;
             currentLabel = Random().nextBool() ? "D40" : "D00";
-            notifyListeners();
+            if (isInitialized) notifyListeners();
           },
         );
       } catch (e) {
@@ -85,32 +122,28 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
       }
     } else {
       isPermissionDenied = true;
-      errorMessage =
-          "Akses kamera ditolak. Silakan izinkan akses untuk fitur ini.";
+      errorMessage = "Akses kamera ditolak.";
     }
 
+    _isCameraInitializing = false;
     notifyListeners();
   }
 
+  // --- MANAGE LIFECYCLE ---
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final CameraController? cameraController = controller;
-
-    if (state == AppLifecycleState.resumed) {
-      if (isInitialized) initCamera();
-      return;
-    }
-
-    if (cameraController == null || !cameraController.value.isInitialized) {
-      return;
-    }
-
-    if (state == AppLifecycleState.inactive || 
-        state == AppLifecycleState.paused) {
-      cameraController.dispose();
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
       isInitialized = false;
       _mockTimer?.cancel();
+      
+      final oldController = controller;
+      controller = null; 
+      oldController?.dispose(); 
+      
       notifyListeners();
+    } 
+    else if (state == AppLifecycleState.resumed) {
+      initCamera();
     }
   }
 
