@@ -14,26 +14,30 @@ class DamagePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
 
-    final Color damageColor = (label == "D40") 
+    final isPothole = (label == "D40");
+    
+    final Color damageColor = isPothole 
         ? Colors.redAccent 
         : Colors.amberAccent;
         
-    final String damageName = (label == "D40") 
+    final String damageName = isPothole 
         ? "POTHOLE" 
         : "LONGITUDINAL CRACK";
 
     final paint = Paint()
       ..color = damageColor
       ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round;
 
-    // Kalkulasi Ukuran & Posisi
-    double boxSize = size.width * 0.4;
-    double finalX = normalizedX * size.width;
-    double finalY = normalizedY * size.height;
+    // Kalkulasi Dimensi (Responsive)
+    final boxSize = size.width * 0.4;
+    final finalX = normalizedX * size.width;
+    final finalY = normalizedY * size.height;
 
-    double left = finalX - (boxSize / 2);
-    double top = finalY - (boxSize / 2);
+    // Hitung posisi sisi (Edge)
+    final left = finalX - (boxSize / 2);
+    final top = finalY - (boxSize / 2);
 
     final rect = Rect.fromLTWH(
       left, 
@@ -42,7 +46,6 @@ class DamagePainter extends CustomPainter {
       boxSize,
     );
 
-    // Gambar Kotak & Crosshair
     canvas.drawRect(rect, paint);
     
     canvas.drawLine(
@@ -50,24 +53,24 @@ class DamagePainter extends CustomPainter {
       Offset(finalX + 10, finalY), 
       paint,
     );
-    
+    // Garis Vertikal
     canvas.drawLine(
       Offset(finalX, finalY - 10), 
       Offset(finalX, finalY + 10), 
       paint,
     );
 
-    // Konfigurasi Gaya Teks
+    // Konfigurasi Label Teks
     final textStyle = TextStyle(
       color: Colors.white,
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: FontWeight.bold,
       backgroundColor: damageColor.withValues(alpha: 0.8),
       shadows: const [
         Shadow(
           blurRadius: 4.0, 
           color: Colors.black, 
-          offset: Offset(2, 2),
+          offset: Offset(1, 1),
         ),
       ],
     );
@@ -86,15 +89,14 @@ class DamagePainter extends CustomPainter {
     
     textPainter.paint(
       canvas, 
-      Offset(left, top - 25),
+      Offset(left, top - 20),
     );
   }
 
   @override
   bool shouldRepaint(covariant DamagePainter oldDelegate) {
-    // Repaint jika ada perubahan koordinat atau label
     return oldDelegate.normalizedX != normalizedX ||
-        oldDelegate.normalizedY != normalizedY ||
-        oldDelegate.label != label;
+           oldDelegate.normalizedY != normalizedY ||
+           oldDelegate.label != label;
   }
 }
