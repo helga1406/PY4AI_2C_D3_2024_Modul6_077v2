@@ -273,7 +273,7 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
             // 6. Sharpening
             _buildToolBtn(
               Icons.shutter_speed,
-              "Sharpening",
+              "Sharpen",
               _visionController.isSharpenActive,
               () => _visionController.toggleSharpen(),
             ),
