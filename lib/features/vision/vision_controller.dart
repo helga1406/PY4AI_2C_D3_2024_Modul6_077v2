@@ -28,7 +28,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   // --- FITUR PCD & KONTROL ---
   String activeFilter = "Normal";
   double scaleFactor = 1.0;
-  bool isBlurhActive = false;
+  bool isSmoothingActive = false;
   bool isNoiseActive = false;
   double brightness = 1.0;
   bool isSharpenActive = false;
@@ -172,8 +172,9 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void toggleBlur() {
-    isBlurhActive = !isBlurhActive;
+  void toggleSmooth
+  () {
+    isSmoothingActive = !isSmoothingActive;
     if (isUsingGallery && selectedFile != null) {
       _processStaticImage(selectedFile!);
     }
@@ -354,8 +355,29 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
         resultMat = cv.threshold(grayMat, 100, 255, cv.THRESH_BINARY).$2;
         grayMat.dispose();
         break;
+      case "High-pass":
+        cv.Mat smoothMat = cv.gaussianBlur(sourceMat, (7, 7), 0);
+        resultMat = cv.subtract(sourceMat, smoothMat); 
+        smoothMat.dispose();
+      break;
       case "Inverse":
         resultMat = cv.bitwiseNOT(sourceMat);
+        break;
+      case "XOR":
+        cv.Mat edge = cv.canny(sourceMat, 50, 150);
+        // Mengubah edge (1 channel) ke format yang sama dengan sourceMat (3/4 channel)
+        cv.Mat edgeConverted = cv.cvtColor(edge, cv.COLOR_GRAY2BGR); 
+        resultMat = cv.bitwiseXOR(sourceMat, edgeConverted);
+        edge.dispose();
+        edgeConverted.dispose();
+      break;
+      case "Dilation":
+        final rect = cv.getStructuringElement(cv.MORPH_RECT, (3, 3));
+        resultMat = cv.dilate(sourceMat, rect);
+        break;
+      case "Erosion":
+        final rect = cv.getStructuringElement(cv.MORPH_RECT, (3, 3));
+        resultMat = cv.erode(sourceMat, rect);
         break;
       case "Edge":
         cv.Mat edgeGray = isBgra
@@ -376,13 +398,12 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
       tempBlur.dispose();
     }
 
-    if (isBlurhActive) {
+    if (isSmoothingActive) {
       resultMat = cv.gaussianBlur(resultMat, (5, 5), 0);
     }
 
     processedImage = cv.imencode('.jpg', resultMat).$2;
 
-    // --- TRIGGER HISTOGRAM SETIAP KALI PROSES SELESAI ---
     if (processedImage != null) {
       _updateHistogram(processedImage!);
     }

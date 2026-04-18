@@ -217,9 +217,9 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
             // 1. Blur
             _buildToolBtn(
               Icons.blur_on,
-              "blur",
-              _visionController.isBlurhActive,
-              _visionController.toggleBlur,
+              "Smoothing",
+              _visionController.isSmoothingActive,
+              _visionController.toggleSmooth,
             ),
             const SizedBox(height: 16),
 
@@ -374,9 +374,13 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
                 children: [
                   "Normal",
                   "Grayscale",
-                  "Inverse",
-                  "Threshold",
+                  "High-pass",
                   "Edge",
+                  "Threshold",
+                  "Inverse", 
+                  "XOR",
+                  "Dilation",
+                  "Erosion",
                 ].map((f) {
                   bool sel = _visionController.activeFilter == f;
                   return ActionChip(
