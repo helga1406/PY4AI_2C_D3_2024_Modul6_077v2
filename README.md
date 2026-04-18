@@ -1,15 +1,89 @@
-<<<<<<< HEAD
-# logbook_app_07 Modul 2 (Data Persistence)
 
-Proyek ini adalah aplikasi logbook berbasis Flutter yang berfokus pada implementasi keamanan login, navigasi antar halaman, dan penyimpanan data lokal menggunakan **Shared Preferences**.
+# LOGBOOK_APP_077 - PCD Inspector
 
-## Lesson Learned
+Aplikasi berbasis mobile menggunakan **Flutter** dan **OpenCV**. Aplikasi ini dirancang untuk melakukan Pengolahan Citra Digital (PCD) secara *real-time* maupun statis.
 
-Berikut adalah hal yang saya pahami dalam pengerjaan Modul 2 part 1:
+## Tech Stack
 
-1. **Konsep Asynchronous**: Saya baru memahami betapa krusialnya penggunaan kata kunci async dan await saat berinteraksi dengan memori lokal. Tanpa ini, aplikasi bisa error atau "freeze" karena mencoba membaca data yang belum siap.
-2. **Manajemen State & UI**: Saya belajar bahwa sinkronisasi antara data di Controller dan tampilan di View memerlukan pemahaman setstate yang tepat, terutama saat memuat data (loading) dari Shared Preferences saat aplikasi pertama kali dibuka (initstate).
-3. **Penyelesaian Masalah (Troubleshooting)**: Tantangan terbesar saya adalah mengatasi kendala teknis pada perangkat (laptop) yang mengalami lag/hang saat menjalankan VS Code. Solusinya adalah saya mencoba melakukan optimasi mandiri dengan memindahkan lokasi file proyek dan merapikan struktur direktori. Hasilnya, beban CPU berkurang sehingga VS Code dapat berjalan lebih stabil tanpa memicu suhu tinggi pada laptop, dan saya bisa menyelesaikan kodingan *Shared Preferences* hingga tuntas.
-=======
-# PY4AI_2C_D3_2024_Modul6_077v2
->>>>>>> 9a03b636fb70b8c5485b4e46adeb7548ea400565
+- **Framework:** Flutter
+- **Language:** Dart
+- **Image Processing:** `opencv_dart` (OpenCV 4.x wrapper)
+- **Image Library:** `image` (untuk kalkulasi histogram)
+- **Assets:** Lottie Animation & Custom Icons
+
+## Panduan Instalasi
+
+### 1. Persiapan Environment
+
+Pastikan Flutter SDK sudah terinstall dan perangkat Android kamu mendukung API Level minimal 24.
+
+- **Min SDK Version:** 24
+- **Target SDK Version:** 33/34
+
+### 2. Clone & Install Dependency
+
+Buka terminal di folder proyek dan jalankan
+
+```
+flutter pub get
+```
+
+### 3. Setup Native OpenCV (Penting!)
+
+Library `opencv_dart` memerlukan binary native. Jalankan perintah ini agar library bisa berjalan di perangkat:
+
+```
+dart run opencv_dart:setup
+```
+
+### 4. Konfigurasi Izin (Android)
+
+Pastikan di `android/app/src/main/AndroidManifest.xml` sudah terdapat izin berikut:
+
+**XML**
+
+```
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+```
+
+---
+
+## Fitur Utama
+
+### 1. Live Processing & Filtering
+
+Menggunakan OpenCV untuk memproses frame kamera secara langsung (stream).
+
+* **Grayscale:** Konversi citra ke skala abu-abu.
+* **Threshold:** Segmentasi biner untuk memisahkan objek dan background.
+* **Edge Detection (Canny):** Mendeteksi tepi atau kontur kerusakan jalan.
+* **Inverse:** Membalikkan nilai intensitas warna.
+
+### 2. Real-time RGB Histogram
+
+Menampilkan distribusi frekuensi warna (Red, Green, Blue) dari frame yang sedang diproses. Berguna untuk menganalisis karakteristik pencahayaan citra.
+
+### 3. Image Mode (Static & Gallery)
+
+* **Capture:** Membekukan frame kamera saat ini untuk dianalisis lebih lanjut.
+* **Gallery:** Mengambil gambar dari penyimpanan HP untuk diproses dengan filter OpenCV.
+
+### 4. Smart Control
+
+* **Flashlight:** Dukungan lampu senter untuk pengambilan gambar di kondisi minim cahaya.
+* **Brightness Control:** Slider untuk mengatur intensitas cahaya citra secara dinamis.
+
+## Struktur Folder
+
+* `lib/main.dart`: Entry point aplikasi.
+* `lib/vision_view.dart`: Antarmuka pengguna (UI), Sidebar, dan Histogram.
+* `lib/vision_controller.dart`: Logika bisnis, manajemen kamera, dan jembatan OpenCV.
+* `lib/damage_painter.dart`: Custom painter untuk menggambar bounding box/overlay.
+
+## Author
+
+**Helga Athifa Hidayat** NIM: 241511077
+
+*Teknik Informatika - Politeknik Negeri Bandung*
