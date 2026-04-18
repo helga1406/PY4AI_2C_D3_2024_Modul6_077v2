@@ -171,13 +171,20 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void toggleSmooth() {
-    isSmoothingActive = !isSmoothingActive;
-    if (isUsingGallery && selectedFile != null) {
+void toggleSmooth() {
+  isSmoothingActive = !isSmoothingActive;
+
+  if (isUsingGallery) {
+    if (selectedFile != null) {
       _processStaticImage(selectedFile!);
+    } 
+    else if (capturedMat != null) {
+      _processCapturedImage();
     }
-    notifyListeners();
   }
+
+  notifyListeners();
+}
 
   void toggleNoise() {
     isNoiseActive = !isNoiseActive;
