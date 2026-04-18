@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:math';
-import 'dart:ui'; 
 import 'vision_controller.dart';
 import 'damage_painter.dart';
 
@@ -17,7 +16,6 @@ class VisionView extends StatefulWidget {
 class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
   late VisionController _visionController;
   late AnimationController _histogramController;
-  double _intensity = 1.0;
 
   @override
   void initState() {
@@ -101,6 +99,31 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
           if (!_visionController.isInitialized) {
             return const SizedBox.shrink();
           }
+
+          // --- MODE STATIS (Capture / Upload Galeri) ---
+          if (_visionController.isUsingGallery) {
+            // Cek apakah berasal dari galeri atau hasil capture instan
+            bool isFromGallery = _visionController.selectedFile != null;
+
+            return FloatingActionButton.extended(
+              // Kita gunakan fungsi retakeImage yang sudah kita buat tadi
+              onPressed: _visionController.retakeImage,
+              backgroundColor: const Color.fromARGB(255, 158, 101, 140),
+              icon: Icon(
+                isFromGallery ? Icons.refresh : Icons.camera_alt,
+                color: Colors.white,
+              ),
+              label: Text(
+                isFromGallery ? "Ganti Foto" : "Ambil Ulang",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          }
+
+          // --- MODE LIVE (Kamera Jalan) ---
           return FloatingActionButton(
             mini: true,
             backgroundColor: _visionController.isFlashOn
@@ -121,32 +144,31 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
     return Stack(
       children: [
         Positioned.fill(
-          child: Transform.scale(
-            scale: _visionController.scaleFactor,
-            child: ColorFiltered(
-              colorFilter: _getPCDFilter(
-                _visionController.activeFilter,
-                _intensity,
-              ),
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(
-                  sigmaX: _visionController.isSmoothActive ? 5.0 : 0.0,
-                  sigmaY: _visionController.isSmoothActive ? 5.0 : 0.0,
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CameraPreview(_visionController.controller!),
-                    if (_visionController.isNoiseActive)
-                      CustomPaint(
-                        painter: NoisePainter(),
-                      ),
-                  ],
-                ),
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: 9 / 16,
+              child: Transform.scale(
+                scale: _visionController.scaleFactor,
+                // --- MODIFIKASI: Mendukung tampilan Kamera & Galeri ---
+                child: _visionController.processedImage != null
+                    ? Image.memory(
+                        _visionController.processedImage!,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      )
+                    : (_visionController.isUsingGallery
+                        ? const Center(child: CircularProgressIndicator())
+                        : CameraPreview(_visionController.controller!)),
               ),
             ),
           ),
         ),
+        if (_visionController.isNoiseActive)
+          Positioned.fill(
+            child: CustomPaint(
+              painter: NoisePainter(),
+            ),
+          ),
         if (_visionController.showOverlay)
           Positioned.fill(
             child: CustomPaint(
@@ -173,55 +195,90 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
 
   Widget _buildSidebarTools() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+      width: 60,
+      padding: const EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: 4,
+      ),
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 45, 45, 45),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(15),
         boxShadow: const [
           BoxShadow(
             color: Colors.black54,
-            blurRadius: 5,
+            blurRadius: 4,
           ),
         ],
       ),
-      child: Column(
-        children: [
-          _buildToolBtn(
-            Icons.zoom_in,
-            "Size",
-            _visionController.scaleFactor > 1.0,
-            _visionController.toggleSize,
-          ),
-          const SizedBox(height: 20), 
-          _buildToolBtn(
-            Icons.blur_on,
-            "Smooth",
-            _visionController.isSmoothActive,
-            _visionController.toggleSmooth,
-          ),
-          const SizedBox(height: 20), 
-          _buildToolBtn(
-            Icons.grain,
-            "Noise",
-            _visionController.isNoiseActive,
-            _visionController.toggleNoise,
-          ),
-          
-          const SizedBox(height: 10), 
-          const Divider(
-            color: Colors.white10, 
-            height: 1,      
-            thickness: 1,
-          ),
-          const SizedBox(height: 9), 
-          
-          _buildToolBtn(
-            Icons.tune,
-            "Filter",
-            _visionController.activeFilter != "Normal",
-            () => _showPCDMenu(),
-          ),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 1. Blur
+            _buildToolBtn(
+              Icons.blur_on,
+              "blur",
+              _visionController.isBlurhActive,
+              _visionController.toggleBlur,
+            ),
+            const SizedBox(height: 16),
+
+            // 2. Noise
+            _buildToolBtn(
+              Icons.grain,
+              "Noise",
+              _visionController.isNoiseActive,
+              _visionController.toggleNoise,
+            ),
+            const SizedBox(height: 16),
+
+            // 3. Capture
+            _buildToolBtn(
+              Icons.camera_alt,
+              "Capture",
+              _visionController.isUsingGallery &&
+                  _visionController.selectedFile == null,
+              _visionController.takeImageWithCamera,
+            ),
+            const SizedBox(height: 16),
+
+            // 4. Upload
+            _buildToolBtn(
+              Icons.image_search,
+              "Upload",
+              _visionController.isUsingGallery &&
+                  _visionController.selectedFile != null,
+              _visionController.pickImageFromGallery,
+            ),
+
+            // PEMBATAS (Jarak disamakan)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Divider(
+                color: Colors.white10,
+                thickness: 1,
+                height: 0,
+              ),
+            ),
+
+            // 5. Filter
+            _buildToolBtn(
+              Icons.tune,
+              "Filter",
+              _visionController.activeFilter != "Normal",
+              () => _showPCDMenu(),
+            ),
+            const SizedBox(height: 16),
+
+            // 6. Sharpening
+            _buildToolBtn(
+              Icons.shutter_speed,
+              "Sharpening",
+              _visionController.isSharpenActive,
+              () => _visionController.toggleSharpen(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -282,14 +339,14 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    "Intensity",
+                    "Brightness",
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
                     ),
                   ),
                   Text(
-                    "${(_intensity * 100).toInt()}%",
+                    "${(_visionController.brightness * 100).toInt()}%",
                     style: const TextStyle(
                       color: Color.fromARGB(255, 220, 180, 205),
                       fontSize: 12,
@@ -299,13 +356,13 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
                 ],
               ),
               Slider(
-                value: _intensity,
+                value: _visionController.brightness,
                 min: 0.1,
                 max: 2.0,
                 activeColor: const Color.fromARGB(255, 158, 101, 140),
                 onChanged: (val) {
-                  setModalState(() => _intensity = val);
-                  setState(() => _intensity = val);
+                  setModalState(() {});
+                  _visionController.setBrightness(val);
                 },
               ),
               const Divider(color: Colors.white10),
@@ -316,11 +373,10 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
                 alignment: WrapAlignment.center,
                 children: [
                   "Normal",
-                  "Kontras",
                   "Grayscale",
-                  "Invert",
-                  "Sepia",
-                  "Threshold", 
+                  "Inverse",
+                  "Threshold",
+                  "Edge",
                 ].map((f) {
                   bool sel = _visionController.activeFilter == f;
                   return ActionChip(
@@ -351,28 +407,49 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
   }
 
   Widget _buildLiveHistogram() {
-    return AnimatedBuilder(
-      animation: _histogramController,
+    return ListenableBuilder(
+      listenable: _visionController,
       builder: (context, child) {
         return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Color.fromARGB(255, 45, 45, 45).withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 4,
-              ),
-            ],
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
           ),
-
-          child: Stack(
-            alignment: Alignment.bottomCenter,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildRgbChannel(Colors.redAccent, 0.0),     
-              _buildRgbChannel(Colors.greenAccent, 1.0),   
-              _buildRgbChannel(Colors.lightBlueAccent, 2.0), 
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 8),
+                child: Text(
+                  "RGB SPECTRUM",
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 7,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              _buildRgbChannel(
+                const Color(0xFFFF5252),
+                _visionController.rData,
+              ),
+              const SizedBox(height: 4),
+              _buildRgbChannel(
+                const Color(0xFF69F0AE),
+                _visionController.gData,
+              ),
+              const SizedBox(height: 4),
+              _buildRgbChannel(
+                const Color(0xFF40C4FF),
+                _visionController.bData,
+              ),
             ],
           ),
         );
@@ -380,108 +457,80 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
     );
   }
 
-  // --- Helper method untuk membangun channel histogram RGB ---
-  Widget _buildRgbChannel(Color color, double phaseShift) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(8, (i) {
-
-        double wave = sin((_histogramController.value * pi) + (i * 0.8) + phaseShift);
-        
-        double h = (wave * 12 + 25) * _intensity;
-
-        return Container(
-          width: 6,
-          height: h.clamp(5, 50),
-          margin: const EdgeInsets.only(right: 3),
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(3),
-            ),
-
-            color: color.withValues(alpha: 0.5), 
-          ),
-        );
-      }),
+  Widget _buildRgbChannel(Color color, List<double> data) {
+    return SizedBox(
+      width: 110,
+      height: 25,
+      child: CustomPaint(
+        painter: HistogramPainter(
+          data: data,
+          color: color,
+        ),
+      ),
     );
-  }
-
-  // --- Helper method untuk mendapatkan ColorFilter ---
-  ColorFilter _getPCDFilter(String filter, double val) {
-    switch (filter) {
-      case "Kontras":
-        double offset = -50 * val;
-        return ColorFilter.matrix([
-          val, 0, 0, 0, offset,
-          0, val, 0, 0, offset,
-          0, 0, val, 0, offset,
-          0, 0, 0, 1, 0,
-        ]);
-      case "Grayscale":
-        return const ColorFilter.matrix([
-          0.21, 0.72, 0.07, 0, 0,
-          0.21, 0.72, 0.07, 0, 0,
-          0.21, 0.72, 0.07, 0, 0,
-          0, 0, 0, 1, 0,
-        ]);
-      case "Invert":
-        return const ColorFilter.matrix([
-          -1, 0, 0, 0, 255,
-          0, -1, 0, 0, 255,
-          0, 0, -1, 0, 255,
-          0, 0, 0, 1, 0,
-        ]);
-      case "Sepia":
-        return const ColorFilter.matrix([
-          0.39, 0.76, 0.18, 0, 0,
-          0.34, 0.68, 0.16, 0, 0,
-          0.27, 0.53, 0.13, 0, 0,
-          0, 0, 0, 1, 0,
-        ]);
-      case "Threshold":
-
-        double t = 100.0; 
-        return ColorFilter.matrix([
-          t * 0.21, t * 0.72, t * 0.07, 0, -128 * t,
-          t * 0.21, t * 0.72, t * 0.07, 0, -128 * t,
-          t * 0.21, t * 0.72, t * 0.07, 0, -128 * t,
-          0, 0, 0, 1, 0,
-        ]);
-      default:
-        return const ColorFilter.mode(
-          Colors.transparent,
-          BlendMode.multiply,
-        );
-    }
   }
 
   Widget _buildPermissionDeniedState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.no_photography,
-            color: Colors.white54,
-            size: 80,
-          ),
-          const SizedBox(height: 25),
-          const Text(
-            "Akses Kamera Ditolak",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/camera1.png',
+              width: 150,
+              height: 150,
+              fit: BoxFit.contain,
+              color: Colors.white.withValues(alpha: 0.5),
+              colorBlendMode: BlendMode.modulate,
             ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromARGB(255, 158, 101, 140),
+            const SizedBox(height: 25),
+            const Text(
+              "Akses Kamera Ditolak",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            onPressed: () => openAppSettings(),
-            child: const Text("Buka Pengaturan"),
-          )
-        ],
+            const SizedBox(height: 10),
+            const Text(
+              "Aplikasi memerlukan izin kamera untuk melakukan inspeksi PCD.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 158, 101, 140),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              onPressed: () => openAppSettings(),
+              icon: const Icon(
+                Icons.settings,
+                color: Colors.white,
+              ),
+              label: const Text(
+                "Buka Pengaturan",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -531,12 +580,11 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
   }
 }
 
-// --- CustomPainter untuk efek noise statis ---
 class NoisePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final random = Random();
-    final paint = Paint()..color = Colors.white.withValues(alpha: 0.2);
+    final paint = Paint()..color = Colors.white.withAlpha(51);
 
     for (int i = 0; i < 2000; i++) {
       double x = random.nextDouble() * size.width;
@@ -547,4 +595,50 @@ class NoisePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class HistogramPainter extends CustomPainter {
+  final List<double> data;
+  final Color color;
+
+  HistogramPainter({
+    required this.data,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(0, size.height);
+
+    double stepX = size.width / 255;
+
+    for (int i = 0; i < data.length; i++) {
+      double x = i * stepX;
+      double y = size.height - (data[i] * size.height).clamp(0.0, size.height);
+      path.lineTo(x, y);
+    }
+
+    path.lineTo(size.width, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    canvas.drawLine(
+      Offset(0, size.height),
+      Offset(size.width, size.height),
+      Paint()..color = Colors.white10,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant HistogramPainter oldDelegate) {
+    return oldDelegate.data != data || oldDelegate.color != color;
+  }
 }
