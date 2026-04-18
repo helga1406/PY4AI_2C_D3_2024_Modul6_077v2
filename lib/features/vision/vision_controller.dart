@@ -7,7 +7,7 @@ import 'package:logbook_app_077/main.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:opencv_dart/opencv_dart.dart' as cv;
-import 'package:image/image.dart' as img; 
+import 'package:image/image.dart' as img;
 
 class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   CameraController? controller;
@@ -56,7 +56,6 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
   // --- LOGIKA PERHITUNGAN HISTOGRAM (TAMBAHAN) ---
   void _updateHistogram(Uint8List imageBytes) {
-
     final image = img.decodeImage(imageBytes);
     if (image == null) return;
 
@@ -172,8 +171,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void toggleSmooth
-  () {
+  void toggleSmooth() {
     isSmoothingActive = !isSmoothingActive;
     if (isUsingGallery && selectedFile != null) {
       _processStaticImage(selectedFile!);
@@ -217,69 +215,81 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> initCamera() async {
-    if (_isCameraInitializing) return;
-    _isCameraInitializing = true;
-    isPermissionDenied = false;
-    errorMessage = null;
-    notifyListeners();
+  if (_isCameraInitializing) return;
+
+  _isCameraInitializing = true;
+
+  isInitialized = false;
+  isPermissionDenied = false;
+  errorMessage = null;
+
+  notifyListeners();
+
+  try {
 
     var status = await Permission.camera.status;
     if (!status.isGranted) {
       status = await Permission.camera.request();
     }
 
-    if (status.isGranted) {
-      try {
-        if (cameras.isEmpty) {
-          errorMessage = "Sensor kamera tidak ditemukan.";
-          _isCameraInitializing = false;
-          notifyListeners();
-          return;
-        }
-
-        final oldController = controller;
-        if (oldController != null) {
-          controller = null;
-          await oldController.dispose();
-        }
-
-        CameraController newController = CameraController(
-          cameras[0],
-          ResolutionPreset.medium,
-          enableAudio: false,
-          imageFormatGroup: ImageFormatGroup.bgra8888,
-        );
-
-        await newController.initialize();
-        controller = newController;
-        isInitialized = true;
-        errorMessage = null;
-
-        if (!isStreaming && !isUsingGallery) {
-          controller!.startImageStream((CameraImage image) {
-            _processFrame(image);
-          });
-          isStreaming = true;
-        }
-
-        _mockTimer?.cancel();
-        _mockTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-          mockX = 0.2 + Random().nextDouble() * 0.6;
-          mockY = 0.2 + Random().nextDouble() * 0.6;
-          currentLabel = Random().nextBool() ? "D40" : "D00";
-          if (isInitialized) notifyListeners();
-        });
-      } catch (e) {
-        errorMessage = "Gagal memulai sensor: $e";
-      }
-    } else {
+    if (!status.isGranted) {
       isPermissionDenied = true;
       errorMessage = "Akses kamera ditolak.";
+
+      _isCameraInitializing = false;
+      notifyListeners();
+      return; 
     }
 
-    _isCameraInitializing = false;
-    notifyListeners();
+    if (cameras.isEmpty) {
+      errorMessage = "Sensor kamera tidak ditemukan.";
+
+      _isCameraInitializing = false;
+      notifyListeners();
+      return;
+    }
+
+    if (controller != null) {
+      final old = controller!;
+      controller = null;
+      await old.dispose();
+    }
+
+    final newController = CameraController(
+      cameras[0],
+      ResolutionPreset.medium,
+      enableAudio: false,
+      imageFormatGroup: ImageFormatGroup.bgra8888,
+    );
+
+    await newController.initialize();
+
+    controller = newController;
+    isInitialized = true;
+
+    if (!isStreaming && !isUsingGallery && controller!.value.isInitialized) {
+      await controller!.startImageStream((CameraImage image) {
+        _processFrame(image);
+      });
+      isStreaming = true;
+    }
+
+    _mockTimer?.cancel();
+    _mockTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      mockX = 0.2 + Random().nextDouble() * 0.6;
+      mockY = 0.2 + Random().nextDouble() * 0.6;
+      currentLabel = Random().nextBool() ? "D40" : "D00";
+
+      if (isInitialized) notifyListeners();
+    });
+
+  } catch (e) {
+    errorMessage = "Gagal memulai kamera: $e";
   }
+
+  _isCameraInitializing = false;
+  notifyListeners();
+}
 
   void _processStaticImage(XFile file) {
     try {
@@ -357,19 +367,19 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
         break;
       case "High-pass":
         cv.Mat smoothMat = cv.gaussianBlur(sourceMat, (7, 7), 0);
-        resultMat = cv.subtract(sourceMat, smoothMat); 
+        resultMat = cv.subtract(sourceMat, smoothMat);
         smoothMat.dispose();
-      break;
+        break;
       case "Inverse":
         resultMat = cv.bitwiseNOT(sourceMat);
         break;
       case "XOR":
         cv.Mat edge = cv.canny(sourceMat, 50, 150);
-        cv.Mat edgeConverted = cv.cvtColor(edge, cv.COLOR_GRAY2BGR); 
+        cv.Mat edgeConverted = cv.cvtColor(edge, cv.COLOR_GRAY2BGR);
         resultMat = cv.bitwiseXOR(sourceMat, edgeConverted);
         edge.dispose();
         edgeConverted.dispose();
-      break;
+        break;
       case "Dilation":
         final rect = cv.getStructuringElement(cv.MORPH_RECT, (3, 3));
         resultMat = cv.dilate(sourceMat, rect);
