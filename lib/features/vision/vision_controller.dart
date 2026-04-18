@@ -365,7 +365,6 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
         break;
       case "XOR":
         cv.Mat edge = cv.canny(sourceMat, 50, 150);
-        // Mengubah edge (1 channel) ke format yang sama dengan sourceMat (3/4 channel)
         cv.Mat edgeConverted = cv.cvtColor(edge, cv.COLOR_GRAY2BGR); 
         resultMat = cv.bitwiseXOR(sourceMat, edgeConverted);
         edge.dispose();
