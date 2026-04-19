@@ -1,89 +1,86 @@
-
 # LOGBOOK_APP_077 - PCD Inspector
 
-Aplikasi berbasis mobile menggunakan **Flutter** dan **OpenCV**. Aplikasi ini dirancang untuk melakukan Pengolahan Citra Digital (PCD) secara *real-time* maupun statis.
+Aplikasi berbasis mobile menggunakan **Flutter** dan  **OpenCV** . Aplikasi ini dirancang untuk melakukan Pengolahan Citra Digital (PCD) secara *real-time* maupun statis melalui analisis matriks citra.
 
 ## Tech Stack
 
-- **Framework:** Flutter
-- **Language:** Dart
-- **Image Processing:** `opencv_dart` (OpenCV 4.x wrapper)
-- **Image Library:** `image` (untuk kalkulasi histogram)
-- **Assets:** Lottie Animation & Custom Icons
+* **Framework:** Flutter
+* **Language:** Dart
+* **Image Processing:** `opencv_dart` (OpenCV 4.x wrapper)
+* **Image Library:** `image` (untuk analisis pixel histogram)
+* **State Management:** `ChangeNotifier` & `ListenableBuilder`
 
 ## Panduan Instalasi
 
 ### 1. Persiapan Environment
 
-Pastikan Flutter SDK sudah terinstall dan perangkat Android kamu mendukung API Level minimal 24.
+Pastikan Flutter SDK sudah terinstall. Perangkat Android minimal API Level 24.
 
-- **Min SDK Version:** 24
-- **Target SDK Version:** 33/34
+* **Min SDK Version:** 24
+* **Target SDK Version:** 34
 
-### 2. Clone & Install Dependency
+### 2. Install Dependency
 
-Buka terminal di folder proyek dan jalankan
+Buka terminal di root project dan jalankan:
+
+**Bash**
 
 ```
 flutter pub get
 ```
 
-### 3. Setup Native OpenCV (Penting!)
+### 3. Setup Native OpenCV (Wajib)
 
-Library `opencv_dart` memerlukan binary native. Jalankan perintah ini agar library bisa berjalan di perangkat:
+Library `opencv_dart` memerlukan binary native untuk arsitektur prosesor perangkat (arm64/x86_64). Jalankan:
+
+**Bash**
 
 ```
 dart run opencv_dart:setup
 ```
 
-### 4. Konfigurasi Izin (Android)
+### 4. Jalankan Aplikasi
 
-Pastikan di `android/app/src/main/AndroidManifest.xml` sudah terdapat izin berikut:
+Gunakan perangkat Android fisik (Physical Device) untuk performa optimal.
 
-**XML**
+**Bash**
 
 ```
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+flutter run
 ```
 
----
+## Fitur Utama (PCD & Computer Vision)
 
-## Fitur Utama
+### 1. Advanced Live Processing & Filtering
 
-### 1. Live Processing & Filtering
+Menggunakan logika matriks OpenCV (`cv.Mat`) untuk pemrosesan frame  *stream* :
 
-Menggunakan OpenCV untuk memproses frame kamera secara langsung (stream).
+* **Aritmatika Citra:** Kontrol dinamis untuk *Brightness, Contrast,* dan *Gamma Correction* (via LUT).
+* **Filter Spasial:** *Grayscale, Median Blur, High-pass filter,* dan  *Canny Edge Detection* .
+* **Morfologi & Logika:** Implementasi *Dilation, Erosion, Inverse,* serta operator Bitwise XOR untuk ekstraksi fitur.
+* **Noise Injection:** Simulasi *manual noise* pada matriks citra untuk pengujian ketahanan filter.
 
-* **Grayscale:** Konversi citra ke skala abu-abu.
-* **Threshold:** Segmentasi biner untuk memisahkan objek dan background.
-* **Edge Detection (Canny):** Mendeteksi tepi atau kontur kerusakan jalan.
-* **Inverse:** Membalikkan nilai intensitas warna.
+### 2. Real-time RGB Spectrum Analysis
 
-### 2. Real-time RGB Histogram
+Visualisasi distribusi frekuensi warna (Red, Green, Blue) menggunakan `CustomPainter`. Data diambil langsung dari intensitas pixel hasil olahan PCD untuk memantau karakteristik cahaya secara presisi.
 
-Menampilkan distribusi frekuensi warna (Red, Green, Blue) dari frame yang sedang diproses. Berguna untuk menganalisis karakteristik pencahayaan citra.
+### 3. Hybrid Image Mode
 
-### 3. Image Mode (Static & Gallery)
+* **Freeze/Capture:** Menghentikan stream kamera untuk melakukan inspeksi mendalam pada satu frame.
+* **Gallery Inspection:** Mendukung pemrosesan citra dari penyimpanan eksternal dengan kalibrasi Scaling Factor otomatis agar koordinat deteksi tetap akurat.
 
-* **Capture:** Membekukan frame kamera saat ini untuk dianalisis lebih lanjut.
-* **Gallery:** Mengambil gambar dari penyimpanan HP untuk diproses dengan filter OpenCV.
+### 4. Smart Inspection UI
 
-### 4. Smart Control
+* **Hardware Control:** Manajemen *Flashlight* dan integrasi  *Camera Lifecycle* .
+* **Custom Overlay:** Penggunaan `DamagePainter` untuk visualisasi label klasifikasi RDD-2022 (Pothole/Crack) yang responsif.
 
-* **Flashlight:** Dukungan lampu senter untuk pengambilan gambar di kondisi minim cahaya.
-* **Brightness Control:** Slider untuk mengatur intensitas cahaya citra secara dinamis.
+## Struktur Folder Utama
 
-## Struktur Folder
-
-* `lib/main.dart`: Entry point aplikasi.
-* `lib/vision_view.dart`: Antarmuka pengguna (UI), Sidebar, dan Histogram.
-* `lib/vision_controller.dart`: Logika bisnis, manajemen kamera, dan jembatan OpenCV.
-* `lib/damage_painter.dart`: Custom painter untuk menggambar bounding box/overlay.
+* `lib/vision_controller.dart`: Logika bisnis, manajemen memori matriks OpenCV, dan asisten kamera.
+* `lib/vision_view.dart`: Implementasi UI, Reactive Layout, dan Histogram.
+* `lib/damage_painter.dart`: Logika *scaling* koordinat dan rendering overlay grafis.
 
 ## Author
 
-**Helga Athifa Hidayat** NIM: 241511077
-
-*Teknik Informatika - Politeknik Negeri Bandung*
+**Helga Athifa Hidayat** (NIM: 241511077)
+*D3 - Teknik Informatika, Politeknik Negeri Bandung*
