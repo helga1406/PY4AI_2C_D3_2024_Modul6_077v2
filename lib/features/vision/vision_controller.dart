@@ -215,10 +215,9 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
- void toggleNoise() {
+  void toggleNoise() {
     isNoiseActive = !isNoiseActive;
-    
-    // --- TAMBAHAN: Paksa proses ulang jika sedang pakai gambar statis ---
+
     if (isUsingGallery) {
       if (selectedFile != null) {
         _processStaticImage(selectedFile!);
