@@ -30,14 +30,14 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   double scaleFactor = 1.0;
   bool isSmoothingActive = false;
   bool isNoiseActive = false;
- 
-  double brightness = 0.0; 
-  double contrast = 1.0; 
+
+  double brightness = 0.0;
+  double contrast = 1.0;
 
   bool isSharpenActive = false;
-  
+
   // --- TAMBAHAN GAMMA CORRECTION ---
-  double gammaValue = 1.0; 
+  double gammaValue = 1.0;
 
   // --- TAMBAHAN HISTOGRAM DATA ---
   List<double> rData = List.generate(256, (_) => 0.0);
@@ -206,8 +206,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     if (isUsingGallery) {
       if (selectedFile != null) {
         _processStaticImage(selectedFile!);
-      } 
-      else if (capturedMat != null) {
+      } else if (capturedMat != null) {
         _processCapturedImage();
       }
     }
@@ -260,81 +259,79 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> initCamera() async {
-  if (_isCameraInitializing) return;
+    if (_isCameraInitializing) return;
 
-  _isCameraInitializing = true;
+    _isCameraInitializing = true;
 
-  isInitialized = false;
-  isPermissionDenied = false;
-  errorMessage = null;
+    isInitialized = false;
+    isPermissionDenied = false;
+    errorMessage = null;
 
-  notifyListeners();
+    notifyListeners();
 
-  try {
+    try {
+      var status = await Permission.camera.status;
+      if (!status.isGranted) {
+        status = await Permission.camera.request();
+      }
 
-    var status = await Permission.camera.status;
-    if (!status.isGranted) {
-      status = await Permission.camera.request();
-    }
+      if (!status.isGranted) {
+        isPermissionDenied = true;
+        errorMessage = "Akses kamera ditolak.";
 
-    if (!status.isGranted) {
-      isPermissionDenied = true;
-      errorMessage = "Akses kamera ditolak.";
+        _isCameraInitializing = false;
+        notifyListeners();
+        return;
+      }
 
-      _isCameraInitializing = false;
-      notifyListeners();
-      return; 
-    }
+      if (cameras.isEmpty) {
+        errorMessage = "Sensor kamera tidak ditemukan.";
 
-    if (cameras.isEmpty) {
-      errorMessage = "Sensor kamera tidak ditemukan.";
+        _isCameraInitializing = false;
+        notifyListeners();
+        return;
+      }
 
-      _isCameraInitializing = false;
-      notifyListeners();
-      return;
-    }
+      if (controller != null) {
+        final old = controller!;
+        controller = null;
+        await old.dispose();
+      }
 
-    if (controller != null) {
-      final old = controller!;
-      controller = null;
-      await old.dispose();
-    }
+      final newController = CameraController(
+        cameras[0],
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.bgra8888,
+      );
 
-    final newController = CameraController(
-      cameras[0],
-      ResolutionPreset.medium,
-      enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.bgra8888,
-    );
+      await newController.initialize();
 
-    await newController.initialize();
+      controller = newController;
+      isInitialized = true;
 
-    controller = newController;
-    isInitialized = true;
+      if (!isStreaming && !isUsingGallery && controller!.value.isInitialized) {
+        await controller!.startImageStream((CameraImage image) {
+          _processFrame(image);
+        });
+        isStreaming = true;
+      }
 
-    if (!isStreaming && !isUsingGallery && controller!.value.isInitialized) {
-      await controller!.startImageStream((CameraImage image) {
-        _processFrame(image);
+      _mockTimer?.cancel();
+      _mockTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        mockX = 0.2 + Random().nextDouble() * 0.6;
+        mockY = 0.2 + Random().nextDouble() * 0.6;
+        currentLabel = Random().nextBool() ? "D40" : "D00";
+
+        if (isInitialized) notifyListeners();
       });
-      isStreaming = true;
+    } catch (e) {
+      errorMessage = "Gagal memulai kamera: $e";
     }
 
-    _mockTimer?.cancel();
-    _mockTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      mockX = 0.2 + Random().nextDouble() * 0.6;
-      mockY = 0.2 + Random().nextDouble() * 0.6;
-      currentLabel = Random().nextBool() ? "D40" : "D00";
-
-      if (isInitialized) notifyListeners();
-    });
-
-  } catch (e) {
-    errorMessage = "Gagal memulai kamera: $e";
+    _isCameraInitializing = false;
+    notifyListeners();
   }
-
-  _isCameraInitializing = false;
-  notifyListeners();
-}
 
   void _processStaticImage(XFile file) {
     try {
@@ -401,11 +398,11 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
       for (int i = 0; i < 256; i++) {
         lutBytes[i] = (255 * pow(i / 255, gammaValue)).clamp(0, 255).toInt();
       }
-      
+
       cv.Mat lutMat = cv.Mat.fromList(1, 256, cv.MatType.CV_8UC1, lutBytes);
       cv.Mat gammaMat = cv.LUT(resultMat, lutMat);
-      
-      resultMat.dispose(); 
+
+      resultMat.dispose();
       resultMat = gammaMat;
       lutMat.dispose();
     }
@@ -418,8 +415,13 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
         for (int i = 0; i < 2000; i++) {
           int x = random.nextInt(w);
           int y = random.nextInt(h);
-          // Menggambar titik putih (mirip Canvas.drawCircle) langsung pada data matriks
-          cv.circle(resultMat, cv.Point(x, y), 1, cv.Scalar(255, 255, 255, 255), thickness: -1);
+          cv.circle(
+            resultMat,
+            cv.Point(x, y),
+            1,
+            cv.Scalar(255, 255, 255, 255),
+            thickness: -1,
+          );
         }
       }
     }
@@ -433,7 +435,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
             : cv.cvtColor(resultMat, cv.COLOR_BGR2GRAY);
         break;
       case "Median":
-        resultMat = cv.medianBlur(resultMat, 5); 
+        resultMat = cv.medianBlur(resultMat, 5);
         break;
       case "Threshold":
         cv.Mat grayMat = isBgra
