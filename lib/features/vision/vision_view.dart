@@ -2,7 +2,6 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:lottie/lottie.dart';
-import 'dart:math';
 import 'vision_controller.dart';
 import 'damage_painter.dart';
 
@@ -102,11 +101,9 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
 
           // --- MODE STATIS (Capture / Upload Galeri) ---
           if (_visionController.isUsingGallery) {
-            // Cek apakah berasal dari galeri atau hasil capture instan
             bool isFromGallery = _visionController.selectedFile != null;
 
             return FloatingActionButton.extended(
-              // Kita gunakan fungsi retakeImage yang sudah kita buat tadi
               onPressed: _visionController.retakeImage,
               backgroundColor: const Color.fromARGB(255, 158, 101, 140),
               icon: Icon(
@@ -163,12 +160,7 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
             ),
           ),
         ),
-        if (_visionController.isNoiseActive)
-          Positioned.fill(
-            child: CustomPaint(
-              painter: NoisePainter(),
-            ),
-          ),
+
         if (_visionController.showOverlay)
           Positioned.fill(
             child: CustomPaint(
@@ -214,7 +206,7 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 1. Blur
+  
             _buildToolBtn(
               Icons.blur_on,
               "Smoothing",
@@ -223,7 +215,6 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 16),
 
-            // 2. Noise
             _buildToolBtn(
               Icons.grain,
               "Noise",
@@ -232,7 +223,6 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 16),
 
-            // 3. Capture
             _buildToolBtn(
               Icons.camera_alt,
               "Capture",
@@ -251,7 +241,6 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
               _visionController.pickImageFromGallery,
             ),
 
-            // PEMBATAS (Jarak disamakan)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Divider(
@@ -261,7 +250,6 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
               ),
             ),
 
-            // 5. Filter
             _buildToolBtn(
               Icons.tune,
               "Filter",
@@ -335,18 +323,46 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
           builder: (context, setModalState) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // --- KONTROL CONTRAST (Alpha) ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Contrast",
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  Text(
+                    _visionController.contrast.toStringAsFixed(2),
+                    style: const TextStyle(
+                      color: Color.fromARGB(255, 220, 180, 205),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Slider(
+                value: _visionController.contrast,
+                min: 0.1,
+                max: 3.0,
+                activeColor: const Color.fromARGB(255, 158, 101, 140),
+                onChanged: (val) {
+                  setModalState(() {});
+                  _visionController.setContrast(val);
+                },
+              ),
+              
+              // --- KONTROL BRIGHTNESS (Beta) ---
+              const SizedBox(height: 5),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     "Brightness",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   Text(
-                    "${(_visionController.brightness * 100).toInt()}%",
+                    _visionController.brightness.toInt().toString(),
                     style: const TextStyle(
                       color: Color.fromARGB(255, 220, 180, 205),
                       fontSize: 12,
@@ -357,51 +373,90 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
               ),
               Slider(
                 value: _visionController.brightness,
-                min: 0.1,
-                max: 2.0,
+                min: -100.0,
+                max: 100.0,
                 activeColor: const Color.fromARGB(255, 158, 101, 140),
                 onChanged: (val) {
                   setModalState(() {});
                   _visionController.setBrightness(val);
                 },
               ),
+
+              // --- KONTROL GAMMA ---
+              const SizedBox(height: 5),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Gamma",
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  Text(
+                    _visionController.gammaValue.toStringAsFixed(2),
+                    style: const TextStyle(
+                      color: Color.fromARGB(255, 220, 180, 205),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Slider(
+                value: _visionController.gammaValue,
+                min: 0.1,
+                max: 3.0,
+                activeColor: const Color.fromARGB(255, 158, 101, 140),
+                onChanged: (val) {
+                  setModalState(() {});
+                  _visionController.setGamma(val);
+                },
+              ),
+
               const Divider(color: Colors.white10),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  "Normal",
-                  "Grayscale",
-                  "High-pass",
-                  "Edge",
-                  "Threshold",
-                  "Inverse", 
-                  "XOR",
-                  "Dilation",
-                  "Erosion",
-                ].map((f) {
-                  bool sel = _visionController.activeFilter == f;
-                  return ActionChip(
-                    label: Text(f),
-                    onPressed: () {
-                      _visionController.setFilter(f);
-                      Navigator.pop(context);
-                    },
-                    backgroundColor: sel
-                        ? const Color.fromARGB(255, 158, 101, 140)
-                        : Colors.white,
-                    labelStyle: TextStyle(
-                      color: sel ? Colors.white : Colors.black87,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                    side: BorderSide(
-                      color: sel ? Colors.transparent : Colors.black12,
-                    ),
-                  );
-                }).toList(),
+          
+              SizedBox(
+                width: double.infinity,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      "Normal",
+                      "Grayscale",
+                      "Median",
+                      "High-pass",
+                      "Edge",
+                      "Threshold",
+                      "Inverse", 
+                      "XOR",
+                      "Dilation",
+                      "Erosion",
+                    ].map((f) {
+                      bool sel = _visionController.activeFilter == f;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ActionChip(
+                          label: Text(f),
+                          onPressed: () {
+                            _visionController.setFilter(f);
+                            Navigator.pop(context);
+                          },
+                          backgroundColor: sel
+                              ? const Color.fromARGB(255, 158, 101, 140)
+                              : Colors.white,
+                          labelStyle: TextStyle(
+                            color: sel ? Colors.white : Colors.black87,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                          side: BorderSide(
+                            color: sel ? Colors.transparent : Colors.black12,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
             ],
           ),
@@ -582,23 +637,6 @@ class _VisionViewState extends State<VisionView> with TickerProviderStateMixin {
       ),
     );
   }
-}
-
-class NoisePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final random = Random();
-    final paint = Paint()..color = Colors.white.withAlpha(51);
-
-    for (int i = 0; i < 2000; i++) {
-      double x = random.nextDouble() * size.width;
-      double y = random.nextDouble() * size.height;
-      canvas.drawCircle(Offset(x, y), 1.2, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class HistogramPainter extends CustomPainter {

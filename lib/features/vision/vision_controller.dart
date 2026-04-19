@@ -30,8 +30,14 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   double scaleFactor = 1.0;
   bool isSmoothingActive = false;
   bool isNoiseActive = false;
-  double brightness = 1.0;
+ 
+  double brightness = 0.0; 
+  double contrast = 1.0; 
+
   bool isSharpenActive = false;
+  
+  // --- TAMBAHAN GAMMA CORRECTION ---
+  double gammaValue = 1.0; 
 
   // --- TAMBAHAN HISTOGRAM DATA ---
   List<double> rData = List.generate(256, (_) => 0.0);
@@ -54,7 +60,6 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
   cv.Mat? capturedMat;
 
-  // --- LOGIKA PERHITUNGAN HISTOGRAM (TAMBAHAN) ---
   void _updateHistogram(Uint8List imageBytes) {
     final image = img.decodeImage(imageBytes);
     if (image == null) return;
@@ -114,7 +119,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   void _processCapturedImage() {
     if (capturedMat != null) {
       cv.Mat mat = capturedMat!.clone();
-      mat = mat.convertTo(mat.type, alpha: brightness, beta: 0);
+      mat = mat.convertTo(mat.type, alpha: contrast, beta: brightness);
       _applyOpenCVFilters(mat);
       mat.dispose();
     }
@@ -149,6 +154,30 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
   void setBrightness(double value) {
     brightness = value;
+    if (isUsingGallery) {
+      if (selectedFile != null) {
+        _processStaticImage(selectedFile!);
+      } else {
+        _processCapturedImage();
+      }
+    }
+    notifyListeners();
+  }
+
+  void setContrast(double value) {
+    contrast = value;
+    if (isUsingGallery) {
+      if (selectedFile != null) {
+        _processStaticImage(selectedFile!);
+      } else {
+        _processCapturedImage();
+      }
+    }
+    notifyListeners();
+  }
+
+  void setGamma(double value) {
+    gammaValue = value;
     if (isUsingGallery) {
       if (selectedFile != null) {
         _processStaticImage(selectedFile!);
@@ -301,7 +330,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   void _processStaticImage(XFile file) {
     try {
       cv.Mat mat = cv.imread(file.path);
-      mat = mat.convertTo(mat.type, alpha: brightness, beta: 0);
+      mat = mat.convertTo(mat.type, alpha: contrast, beta: brightness);
       _applyOpenCVFilters(mat);
       mat.dispose();
     } catch (e) {
@@ -343,7 +372,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
       if (mat != null) {
         mat = cv.rotate(mat, cv.ROTATE_90_CLOCKWISE);
-        mat = mat.convertTo(mat.type, alpha: brightness, beta: 0);
+        mat = mat.convertTo(mat.type, alpha: contrast, beta: brightness);
 
         _applyOpenCVFilters(mat);
         mat.dispose();
@@ -357,48 +386,80 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _applyOpenCVFilters(cv.Mat sourceMat) {
     cv.Mat resultMat = sourceMat.clone();
-    bool isBgra = sourceMat.channels == 4;
+
+    if (gammaValue != 1.0) {
+      Uint8List lutBytes = Uint8List(256);
+      for (int i = 0; i < 256; i++) {
+        lutBytes[i] = (255 * pow(i / 255, gammaValue)).clamp(0, 255).toInt();
+      }
+      
+      cv.Mat lutMat = cv.Mat.fromList(1, 256, cv.MatType.CV_8UC1, lutBytes);
+      cv.Mat gammaMat = cv.LUT(resultMat, lutMat);
+      
+      resultMat.dispose(); 
+      resultMat = gammaMat;
+      lutMat.dispose();
+    }
+
+    if (isNoiseActive) {
+      final random = Random();
+      final w = resultMat.cols;
+      final h = resultMat.rows;
+      if (w > 0 && h > 0) {
+        for (int i = 0; i < 2000; i++) {
+          int x = random.nextInt(w);
+          int y = random.nextInt(h);
+          // Menggambar titik putih (mirip Canvas.drawCircle) langsung pada data matriks
+          cv.circle(resultMat, cv.Point(x, y), 1, cv.Scalar(255, 255, 255, 255), thickness: -1);
+        }
+      }
+    }
+
+    bool isBgra = resultMat.channels == 4;
 
     switch (activeFilter) {
       case "Grayscale":
         resultMat = isBgra
-            ? cv.cvtColor(sourceMat, cv.COLOR_BGRA2GRAY)
-            : cv.cvtColor(sourceMat, cv.COLOR_BGR2GRAY);
+            ? cv.cvtColor(resultMat, cv.COLOR_BGRA2GRAY)
+            : cv.cvtColor(resultMat, cv.COLOR_BGR2GRAY);
+        break;
+      case "Median":
+        resultMat = cv.medianBlur(resultMat, 5); 
         break;
       case "Threshold":
         cv.Mat grayMat = isBgra
-            ? cv.cvtColor(sourceMat, cv.COLOR_BGRA2GRAY)
-            : cv.cvtColor(sourceMat, cv.COLOR_BGR2GRAY);
+            ? cv.cvtColor(resultMat, cv.COLOR_BGRA2GRAY)
+            : cv.cvtColor(resultMat, cv.COLOR_BGR2GRAY);
         resultMat = cv.threshold(grayMat, 100, 255, cv.THRESH_BINARY).$2;
         grayMat.dispose();
         break;
       case "High-pass":
-        cv.Mat smoothMat = cv.gaussianBlur(sourceMat, (7, 7), 0);
-        resultMat = cv.subtract(sourceMat, smoothMat);
+        cv.Mat smoothMat = cv.gaussianBlur(resultMat, (7, 7), 0);
+        resultMat = cv.subtract(resultMat, smoothMat);
         smoothMat.dispose();
         break;
       case "Inverse":
-        resultMat = cv.bitwiseNOT(sourceMat);
+        resultMat = cv.bitwiseNOT(resultMat);
         break;
       case "XOR":
-        cv.Mat edge = cv.canny(sourceMat, 50, 150);
+        cv.Mat edge = cv.canny(resultMat, 50, 150);
         cv.Mat edgeConverted = cv.cvtColor(edge, cv.COLOR_GRAY2BGR);
-        resultMat = cv.bitwiseXOR(sourceMat, edgeConverted);
+        resultMat = cv.bitwiseXOR(resultMat, edgeConverted);
         edge.dispose();
         edgeConverted.dispose();
         break;
       case "Dilation":
         final rect = cv.getStructuringElement(cv.MORPH_RECT, (3, 3));
-        resultMat = cv.dilate(sourceMat, rect);
+        resultMat = cv.dilate(resultMat, rect);
         break;
       case "Erosion":
         final rect = cv.getStructuringElement(cv.MORPH_RECT, (3, 3));
-        resultMat = cv.erode(sourceMat, rect);
+        resultMat = cv.erode(resultMat, rect);
         break;
       case "Edge":
         cv.Mat edgeGray = isBgra
-            ? cv.cvtColor(sourceMat, cv.COLOR_BGRA2GRAY)
-            : cv.cvtColor(sourceMat, cv.COLOR_BGR2GRAY);
+            ? cv.cvtColor(resultMat, cv.COLOR_BGRA2GRAY)
+            : cv.cvtColor(resultMat, cv.COLOR_BGR2GRAY);
         cv.Mat blurred = cv.gaussianBlur(edgeGray, (5, 5), 0);
         resultMat = cv.canny(blurred, 40, 60);
         edgeGray.dispose();
